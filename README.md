@@ -168,7 +168,7 @@ pip install -r requirements.txt
 
 ### Demo 训练（10 个样本）
 ```bash
-python src/main.py --use_demo_data --device cpu
+python src/main.py --use_demo_data --device gpu
 ```
 
 ### 完整数据集训练（18K 样本）
