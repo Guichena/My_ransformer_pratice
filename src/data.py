@@ -7,11 +7,11 @@ from utils import encode_text, get_tokenizer, PAD_ID
 
 class TranslationDataset(torch.utils.data.Dataset):
     """
-    Translation dataset class.
-    Parameters:
-    - data: List of (source_text, target_text) tuples
+    翻译数据集类。
+    参数:
+    - data: (source_text, target_text) 的列表
     - tokenizer: Tokenizer
-    - max_seq_len: Maximum sequence length
+    - max_seq_len: 最大序列长度
     """
 
     def __init__(
@@ -28,7 +28,7 @@ class TranslationDataset(torch.utils.data.Dataset):
             src_tokens = encode_text(src_text, tokenizer, max_seq_len)
             tgt_tokens = encode_text(tgt_text, tokenizer, max_seq_len)
             if src_tokens.numel() < 2 or tgt_tokens.numel() < 2:
-                # In edge cases, skip samples with insufficient length (less than BOS/EOS)
+                # 边界情况：若长度不足（少于 BOS/EOS），跳过该样本
                 continue
             self.data.append((src_tokens, tgt_tokens))
 
@@ -40,7 +40,7 @@ class TranslationDataset(torch.utils.data.Dataset):
 
 
 def pad_sequence(sequences):
-    """Pad sequences to the same length using PAD_ID."""
+    """使用 PAD_ID 将序列填充到相同长度。"""
     return torch_pad_sequence(sequences, batch_first=True, padding_value=PAD_ID)
 
 
@@ -49,18 +49,21 @@ def create_dataloader(
     batch_size: int,
     max_seq_len: int = 512,
     shuffle: bool = True,
+    tokenizer=None,  # Accept tokenizer as parameter
 ) -> torch.utils.data.DataLoader:
     """
-    Create data loader.
-    Parameters:
-    - data: List of (source_text, target_text) tuples
-    - batch_size: Batch size
-    - max_seq_len: Maximum sequence length
-    - shuffle: Whether to shuffle data
-    Returns:
-    - DataLoader instance
+    创建 DataLoader。
+    参数:
+    - data: (source_text, target_text) 的列表
+    - batch_size: batch 大小
+    - max_seq_len: 最大序列长度
+    - shuffle: 是否打乱数据
+    - tokenizer: Tokenizer 实例（为 None 时使用默认）
+    返回:
+    - DataLoader 实例
     """
-    tokenizer = get_tokenizer()
+    if tokenizer is None:
+        tokenizer = get_tokenizer()
     dataset = TranslationDataset(data, tokenizer, max_seq_len)
 
     def collate_fn(batch):
@@ -69,7 +72,7 @@ def create_dataloader(
 
         if tgt_batch.size(1) < 2:
             raise ValueError(
-                "Target sequence length must be at least 2 (including BOS and EOS)"
+                "目标序列长度至少为 2（包含 BOS 和 EOS）"
             )
 
         tgt_input = tgt_batch[:, :-1]
@@ -91,16 +94,18 @@ def load_data_from_file(
     batch_size: int,
     max_seq_len: int = 512,
     shuffle: bool = True,
+    tokenizer=None,  # Accept tokenizer as parameter
 ) -> torch.utils.data.DataLoader:
     """
-    Load data from file and create data loader.
-    Parameters:
-    - file_path: File path
-    - batch_size: Batch size
-    - max_seq_len: Maximum sequence length
-    - shuffle: Whether to shuffle data
-    Returns:
-    - DataLoader instance
+    从文件加载数据并创建 DataLoader。
+    参数:
+    - file_path: 文件路径
+    - batch_size: batch 大小
+    - max_seq_len: 最大序列长度
+    - shuffle: 是否打乱数据
+    - tokenizer: Tokenizer 实例（为 None 时使用默认）
+    返回:
+    - DataLoader 实例
     """
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"Data file not found: {file_path}")
@@ -116,6 +121,6 @@ def load_data_from_file(
                 src, tgt = line.split("\t")
                 data.append((src, tgt))
             except ValueError:
-                print(f"Skipping invalid line: {line}")
+                print(f"跳过无效行: {line}")
 
-    return create_dataloader(data, batch_size, max_seq_len, shuffle)
+    return create_dataloader(data, batch_size, max_seq_len, shuffle, tokenizer)

@@ -4,18 +4,18 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-# Positional encoding module
+# Positional Encoding 模块
 class PositionalEncoding(nn.Module):
     def __init__(self, d_model, max_len=5000):
         """
-        Initialize positional encoding module.
-        Parameters:
-        - d_model: Feature dimension (embedding dimension)
-        - max_len: Maximum sequence length
+        初始化 Positional Encoding 模块。
+        参数:
+        - d_model: 特征维度（embedding 维度）
+        - max_len: 最大序列长度
         """
         super().__init__()
 
-        # Initialize zero positional encoding matrix with shape [max_len, d_model]
+        # 初始化为 0 的位置编码矩阵，形状 [max_len, d_model]
         pe = torch.zeros(max_len, d_model)
 
         position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
@@ -26,39 +26,39 @@ class PositionalEncoding(nn.Module):
         pe[:, 0::2] = torch.sin(position * div_term)
         pe[:, 1::2] = torch.cos(position * div_term)
 
-        # Add batch dimension, shape becomes [1, max_len, d_model]
+        # 增加 batch 维度，形状变为 [1, max_len, d_model]
         pe = pe.unsqueeze(0)
 
-        # Register as persistent buffer, no gradients needed
+        # 注册为持久 buffer，不需要梯度
         self.register_buffer("pe", pe)
 
     def forward(self, x):
         """
-        Forward pass.
-        Parameters:
-        - x: Input tensor with shape [batch_size, seq_len, d_model]
-        Returns:
-        - Tensor with positional encoding added, same shape as input
+        前向计算。
+        参数:
+        - x: 输入张量，形状 [batch_size, seq_len, d_model]
+        返回:
+        - 加上位置编码后的张量，形状与输入相同
         """
-        # Get input sequence length
+        # 获取输入序列长度
         seq_len = x.size(1)
 
-        # Extract positional encoding matching input sequence length
+        # 取与序列长度匹配的位置编码
         position_encoding = self.pe[:, :seq_len]
 
-        # Add positional encoding to input tensor using broadcasting
+        # 通过广播将位置编码加到输入上
         return x + position_encoding
 
 
-# Multi-head attention module
+# Multi-Head Attention 模块
 class MultiHeadAttention(nn.Module):
     def __init__(self, d_model, num_heads, dropout=0.1):
         """
-        Initialize multi-head attention module.
-        Parameters:
-        - d_model: Input feature dimension
-        - num_heads: Number of attention heads
-        - dropout: Dropout probability
+        初始化 Multi-Head Attention 模块。
+        参数:
+        - d_model: 输入特征维度
+        - num_heads: 注意力头数量
+        - dropout: Dropout 概率
         """
         super().__init__()
         assert d_model % num_heads == 0, "d_model must be divisible by num_heads"
@@ -89,53 +89,53 @@ class MultiHeadAttention(nn.Module):
         batch_size = q.size(0)
         device = q.device
 
-        # Linear transformation and split heads [batch_size, num_heads, seq_len, d_k]
+        # 线性映射并拆分 heads，得到 [batch_size, num_heads, seq_len, d_k]
         q = self.w_q(q).view(batch_size, -1, self.num_heads, self.d_k).transpose(1, 2)
         k = self.w_k(k).view(batch_size, -1, self.num_heads, self.d_k).transpose(1, 2)
         v = self.w_v(v).view(batch_size, -1, self.num_heads, self.d_k).transpose(1, 2)
 
-        # Calculate attention scores [batch_size, num_heads, q_len, k_len]
+        # 计算注意力分数 [batch_size, num_heads, q_len, k_len]
         scores = torch.matmul(q, k.transpose(-2, -1)) / self.scale
 
-        # Apply mask
+        # 应用 mask
         if mask is not None:
-            # Ensure mask is on the correct device
+            # 确保 mask 位于正确 device 上
             mask = mask.to(device)
 
-            # Handle mask dimensions - ensure mask has 4 dimensions
+            # 处理 mask 维度，确保其为 4 维
             if mask.dim() > 4:
                 mask = mask.squeeze(2)
 
-            # Expand mask to all heads
+            # 将 mask 扩展到所有 heads
             if mask.dim() == 4 and mask.size(1) == 1:
                 mask = mask.expand(-1, self.num_heads, -1, -1)
 
-            # Apply mask to scores (masked positions get -inf before softmax)
+            # 将 mask 应用于 scores（被 mask 的位置在 softmax 前置为 -inf）
             scores = scores.masked_fill(mask == 0, -1e9)
 
-        # Calculate attention weights [batch_size, num_heads, q_len, k_len]
+        # 计算注意力权重 [batch_size, num_heads, q_len, k_len]
         attn = F.softmax(scores, dim=-1)
         attn = self.dropout(attn)
 
-        # Calculate output [batch_size, num_heads, q_len, d_k]
+        # 计算输出 [batch_size, num_heads, q_len, d_k]
         output = torch.matmul(attn, v)
 
-        # Rearrange dimensions and merge heads [batch_size, q_len, d_model]
+        # 维度变换并合并 heads，得到 [batch_size, q_len, d_model]
         output = output.transpose(1, 2).contiguous().view(batch_size, -1, self.d_model)
         output = self.w_o(output)
 
         return output
 
 
-# Position-wise feed-forward network module
+# Position-wise Feed-Forward 网络模块
 class PositionWiseFeedForward(nn.Module):
     def __init__(self, d_model, d_ff, dropout=0.1):
         """
-        Initialize position-wise feed-forward network module.
-        Parameters:
-        - d_model: Input feature dimension
-        - d_ff: Feed-forward hidden layer dimension
-        - dropout: Dropout probability
+        初始化 Position-wise Feed-Forward 网络。
+        参数:
+        - d_model: 输入特征维度
+        - d_ff: FFN 隐藏层维度
+        - dropout: Dropout 概率
         """
         super().__init__()
         self.w_1 = nn.Linear(d_model, d_ff)
@@ -145,25 +145,25 @@ class PositionWiseFeedForward(nn.Module):
 
     def forward(self, x):
         """
-        Forward pass.
-        Parameters:
-        - x: Input tensor with shape [batch_size, seq_len, d_model]
-        Returns:
-        - Output tensor with shape [batch_size, seq_len, d_model]
+        前向计算。
+        参数:
+        - x: 输入张量，形状 [batch_size, seq_len, d_model]
+        返回:
+        - 输出张量，形状 [batch_size, seq_len, d_model]
         """
         return self.w_2(self.dropout(self.activation(self.w_1(x))))
 
 
-# Encoder layer module
+# Encoder 层模块
 class EncoderLayer(nn.Module):
     def __init__(self, d_model, num_heads, d_ff, dropout=0.1):
         """
-        Initialize encoder layer module.
-        Parameters:
-        - d_model: Input feature dimension
-        - num_heads: Number of attention heads
-        - d_ff: Feed-forward hidden layer dimension
-        - dropout: Dropout probability
+        初始化 Encoder 层。
+        参数:
+        - d_model: 输入特征维度
+        - num_heads: 注意力头数量
+        - d_ff: FFN 隐藏层维度
+        - dropout: Dropout 概率
         """
         super().__init__()
         self.self_attn = MultiHeadAttention(d_model, num_heads, dropout)
@@ -175,25 +175,25 @@ class EncoderLayer(nn.Module):
 
     def forward(self, x, mask=None):
         """
-        Forward pass.
-        Parameters:
-        - x: Input tensor with shape [batch_size, seq_len, d_model]
-        - mask: Mask tensor
-        Returns:
-        - Output tensor with shape [batch_size, seq_len, d_model]
+        前向计算。
+        参数:
+        - x: 输入张量，形状 [batch_size, seq_len, d_model]
+        - mask: mask 张量
+        返回:
+        - 输出张量，形状 [batch_size, seq_len, d_model]
         """
-        # Self-attention layer
+        # 自注意力层
         attn_output = self.self_attn(x, x, x, mask)
         x = self.norm1(x + self.dropout1(attn_output))
 
-        # Feed-forward layer
+        # 前馈网络层
         ff_output = self.feed_forward(x)
         x = self.norm2(x + self.dropout2(ff_output))
 
         return x
 
 
-# Encoder module
+# Encoder 模块
 class Encoder(nn.Module):
     def __init__(
         self,
@@ -229,14 +229,14 @@ class Encoder(nn.Module):
 
     def forward(self, x, mask=None):
         """
-        Forward pass.
-        Parameters:
-        - x: Input tensor with shape [batch_size, seq_len]
-        - mask: Mask tensor
-        Returns:
-        - Output tensor with shape [batch_size, seq_len, d_model]
+        前向计算。
+        参数:
+        - x: 输入张量，形状 [batch_size, seq_len]
+        - mask: mask 张量
+        返回:
+        - 输出张量，形状 [batch_size, seq_len, d_model]
         """
-        # Word embedding and positional encoding
+        # 词向量与位置编码
         x = self.embedding(x) * math.sqrt(self.embedding.embedding_dim)
         x = self.pos_encoding(x)
         x = self.dropout(x)
@@ -247,16 +247,16 @@ class Encoder(nn.Module):
         return self.norm(x)
 
 
-# Decoder layer module
+# Decoder 层模块
 class DecoderLayer(nn.Module):
     def __init__(self, d_model, num_heads, d_ff, dropout=0.1):
         """
-        Initialize decoder layer module.
-        Parameters:
-        - d_model: Input feature dimension
-        - num_heads: Number of attention heads
-        - d_ff: Feed-forward hidden layer dimension
-        - dropout: Dropout probability
+        初始化 Decoder 层。
+        参数:
+        - d_model: 输入特征维度
+        - num_heads: 注意力头数量
+        - d_ff: FFN 隐藏层维度
+        - dropout: Dropout 概率
         """
         super().__init__()
         self.masked_self_attn = MultiHeadAttention(d_model, num_heads, dropout)
@@ -271,33 +271,33 @@ class DecoderLayer(nn.Module):
 
     def forward(self, x, enc_output, src_mask=None, tgt_mask=None):
         """
-        Forward pass.
-        Parameters:
-        - x: Decoder input tensor with shape [batch_size, seq_len, d_model]
-        - enc_output: Encoder output tensor with shape [batch_size, seq_len, d_model]
-        - src_mask: Source sequence mask
-        - tgt_mask: Target sequence mask
-        Returns:
-        - Output tensor with shape [batch_size, seq_len, d_model]
+        前向计算。
+        参数:
+        - x: Decoder 输入张量，形状 [batch_size, seq_len, d_model]
+        - enc_output: Encoder 输出张量，形状 [batch_size, seq_len, d_model]
+        - src_mask: 源序列 mask
+        - tgt_mask: 目标序列 mask
+        返回:
+        - 输出张量，形状 [batch_size, seq_len, d_model]
         """
-        # Masked self-attention layer
+        # Masked 自注意力层
         attn_output = self.masked_self_attn(x, x, x, tgt_mask)
         x = self.norm1(x + self.dropout1(attn_output))
 
-        # Encoder-decoder attention layer
-        # src_mask shape: [batch_size, 1, 1, src_len]
-        # This allows broadcasting across attention heads and query positions
+        # Encoder-Decoder 注意力层
+        # src_mask 形状: [batch_size, 1, 1, src_len]
+        # 该形状支持在 heads 与 query 维度上的广播
         attn_output = self.enc_dec_attn(x, enc_output, enc_output, src_mask)
         x = self.norm2(x + self.dropout2(attn_output))
 
-        # Feed-forward layer
+        # 前馈网络层
         ff_output = self.feed_forward(x)
         x = self.norm3(x + self.dropout3(ff_output))
 
         return x
 
 
-# Decoder module
+# Decoder 模块
 class Decoder(nn.Module):
     def __init__(
         self,
@@ -311,16 +311,16 @@ class Decoder(nn.Module):
         device="cpu",
     ):
         """
-        Initialize decoder module.
-        Parameters:
-        - vocab_size: Vocabulary size
-        - d_model: Input feature dimension
-        - num_heads: Number of attention heads
-        - num_layers: Number of decoder layers
-        - d_ff: Feed-forward hidden layer dimension
-        - dropout: Dropout probability
-        - max_len: Maximum sequence length
-        - device: Device (e.g., "cpu" or "cuda")
+        初始化 Decoder 模块。
+        参数:
+        - vocab_size: 词表大小
+        - d_model: 输入特征维度
+        - num_heads: 注意力头数量
+        - num_layers: Decoder 层数
+        - d_ff: FFN 隐藏层维度
+        - dropout: Dropout 概率
+        - max_len: 最大序列长度
+        - device: 设备（如 "cpu" 或 "cuda"）
         """
         super().__init__()
         self.embedding = nn.Embedding(vocab_size, d_model)
@@ -334,26 +334,26 @@ class Decoder(nn.Module):
 
     def forward(self, x, enc_output, src_mask=None, tgt_mask=None):
         """
-        Forward pass.
-        Parameters:
-        - x: Decoder input tensor with shape [batch_size, seq_len]
-        - enc_output: Encoder output tensor with shape [batch_size, seq_len, d_model]
-        - src_mask: Source sequence mask
-        - tgt_mask: Target sequence mask
-        Returns:
-        - Output tensor with shape [batch_size, seq_len, vocab_size]
+        前向计算。
+        参数:
+        - x: Decoder 输入张量，形状 [batch_size, seq_len]
+        - enc_output: Encoder 输出张量，形状 [batch_size, seq_len, d_model]
+        - src_mask: 源序列 mask
+        - tgt_mask: 目标序列 mask
+        返回:
+        - 输出张量，形状 [batch_size, seq_len, vocab_size]
         """
-        # Word embedding and positional encoding
+        # 词向量与位置编码
         x = self.embedding(x) * math.sqrt(self.embedding.embedding_dim)
         x = self.pos_encoding(x)
         x = self.dropout(x)
 
-        # Pass through N decoder layers
+        # 通过 N 层 Decoder
         for layer in self.layers:
             x = layer(x, enc_output, src_mask, tgt_mask)
 
-        # Final layer normalization
+        # 最后一层 LayerNorm
         x = self.norm(x)
 
-        # Linear transformation to vocabulary size
+        # 线性映射到词表大小
         return self.linear(x)

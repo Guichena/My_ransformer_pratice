@@ -7,13 +7,13 @@ from typing import Optional
 class TransformerOptimizer:
     def __init__(self, model, model_size, factor=1.0, warmup=4000, optimizer=None):
         """
-        Initialize Transformer optimizer.
-        Parameters:
-        - model: Model parameters
-        - model_size: Model dimension
-        - factor: Learning rate scaling factor
-        - warmup: Number of warmup steps
-        - optimizer: Base optimizer
+        初始化 Transformer 优化器。
+        参数:
+        - model: 模型参数
+        - model_size: 模型维度
+        - factor: 学习率缩放因子
+        - warmup: warmup 步数
+        - optimizer: 底层优化器
         """
         self.model_size = model_size
         self.factor = factor
@@ -29,11 +29,11 @@ class TransformerOptimizer:
 
     def step(self, closure=None):
         """
-        Execute a single optimization step.
-        Parameters:
-        - closure: Closure to reevaluate the model and return loss
-        Returns:
-        - Loss value
+        执行单步优化。
+        参数:
+        - closure: 重新评估模型并返回 loss 的闭包
+        返回:
+        - 损失值
         """
         lr = self.rate()
         for param_group in self.inner_optimizer.param_groups:
@@ -44,11 +44,11 @@ class TransformerOptimizer:
 
     def rate(self):
         """
-        Calculate current learning rate.
-        Returns:
-        - Learning rate
+        计算当前学习率。
+        返回:
+        - 学习率
         """
-        # Ensure step_num is not zero before calculation
+        # 确保 step_num 非 0
         step_num = max(1, self._step)
         return self.factor * (
             self.model_size ** (-0.5)
@@ -57,17 +57,17 @@ class TransformerOptimizer:
 
     def zero_grad(self, set_to_none=False):
         """
-        Clear gradients of all parameters.
-        Parameters:
-        - set_to_none: If True, set gradients to None instead of 0
+        清空所有参数的梯度。
+        参数:
+        - set_to_none: 若为 True，将梯度设为 None（而非 0）
         """
         self.inner_optimizer.zero_grad(set_to_none=set_to_none)
 
     def state_dict(self):
         """
-        Return optimizer state dictionary.
-        Returns:
-        - State dictionary
+        返回优化器的状态字典。
+        返回:
+        - 状态字典
         """
         return {
             "step_num": self._step,
@@ -79,9 +79,9 @@ class TransformerOptimizer:
 
     def load_state_dict(self, state_dict):
         """
-        Load optimizer state.
-        Parameters:
-        - state_dict: State dictionary
+        加载优化器状态。
+        参数:
+        - state_dict: 状态字典
         """
         self._step = state_dict["step_num"]
         self.model_size = state_dict["model_size"]
@@ -92,14 +92,14 @@ class TransformerOptimizer:
 
 def get_optimizer(model, model_size, factor=2.0, warmup=4000):
     """
-    Create Transformer optimizer.
-    Parameters:
-    - model: Model
-    - model_size: Model dimension
-    - factor: Learning rate scaling factor
-    - warmup: Number of warmup steps
-    Returns:
-    - TransformerOptimizer instance
+    创建 Transformer 优化器。
+    参数:
+    - model: 模型
+    - model_size: 模型维度
+    - factor: 学习率缩放因子
+    - warmup: warmup 步数
+    返回:
+    - TransformerOptimizer 实例
     """
     optimizer = optim.Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9)
     return TransformerOptimizer(
