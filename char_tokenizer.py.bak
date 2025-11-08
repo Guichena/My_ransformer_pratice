@@ -1,0 +1,162 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+字符级 Tokenizer
+用于小数据集训练，词表大小约 5000-8000，包含英文和中文字符，避免大词表带来的稀疏性问题。
+"""
+import json
+import os
+
+
+class CharTokenizer:
+    """字符级分词器"""
+
+    def __init__(self):
+        # 特殊 token
+        self.PAD = '<PAD>'
+        self.BOS = '<BOS>'
+        self.EOS = '<EOS>'
+        self.UNK = '<UNK>'
+
+        # 初始化词表
+        self.char2id = {
+            self.PAD: 0,
+            self.BOS: 1,
+            self.EOS: 2,
+            self.UNK: 3,
+        }
+        self.id2char = {v: k for k, v in self.char2id.items()}
+        self.next_id = 4
+
+    @property
+    def n_vocab(self):
+        """词表大小"""
+        return len(self.char2id)
+
+    def build_vocab(self, texts):
+        """从文本列表构建词表"""
+        print(f"Building vocabulary from {len(texts)} texts...")
+
+        # 收集所有字符
+        chars = set()
+        for text in texts:
+            chars.update(text)
+
+        # 添加到词表
+        for char in sorted(chars):
+            if char not in self.char2id:
+                self.char2id[char] = self.next_id
+                self.id2char[self.next_id] = char
+                self.next_id += 1
+
+        print(f"Vocabulary size: {self.n_vocab}")
+
+    def encode(self, text):
+        """编码文本为 token ID 列表"""
+        return [self.char2id.get(char, self.char2id[self.UNK]) for char in text]
+
+    def decode(self, token_ids):
+        """解码 token ID 列表为文本"""
+        chars = []
+        for token_id in token_ids:
+            # 跳过特殊 token
+            if token_id in [self.char2id[self.PAD], self.char2id[self.BOS], self.char2id[self.EOS]]:
+                continue
+            chars.append(self.id2char.get(token_id, self.UNK))
+        return ''.join(chars)
+
+    def save(self, path):
+        """保存词表到文件"""
+        data = {
+            'char2id': self.char2id,
+            'id2char': {str(k): v for k, v in self.id2char.items()},  # JSON 要求 key 为字符串
+            'next_id': self.next_id,
+            'n_vocab': self.n_vocab
+        }
+
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+
+        print(f"Tokenizer saved to {path}")
+
+    @classmethod
+    def load(cls, path):
+        """从文件加载词表"""
+        with open(path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+
+        tokenizer = cls()
+        tokenizer.char2id = data['char2id']
+        tokenizer.id2char = {int(k): v for k, v in data['id2char'].items()}  # 转回整数 key
+        tokenizer.next_id = data['next_id']
+
+        print(f"Tokenizer loaded from {path} (vocab_size={tokenizer.n_vocab})")
+        return tokenizer
+
+
+def main():
+    """主函数：从数据文件构建词表"""
+    # 配置
+    data_file = "data/数据集_clean.tsv"
+    output_path = "data/char_tokenizer.json"
+
+    # 检查文件是否存在
+    if not os.path.exists(data_file):
+        print(f"Error: Data file not found: {data_file}")
+        print("Please prepare your data file first.")
+        return
+
+    # 读取数据
+    print(f"Reading data from {data_file}...")
+    texts = []
+    with open(data_file, 'r', encoding='utf-8') as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+
+            try:
+                src, tgt = line.split('\t')
+                texts.append(src)
+                texts.append(tgt)
+            except ValueError:
+                print(f"Skipping invalid line: {line}")
+
+    print(f"Total texts: {len(texts)}")
+
+    # 构建词表
+    tokenizer = CharTokenizer()
+    tokenizer.build_vocab(texts)
+
+    # 保存词表
+    tokenizer.save(output_path)
+
+    # 测试
+    print("\n" + "="*60)
+    print("Testing tokenizer...")
+    print("="*60)
+
+    test_texts = [
+        "Hello, world!",
+        "你好，世界！",
+        "Learning is the best reward.",
+        "学习是旅途的意义。"
+    ]
+
+    for text in test_texts:
+        encoded = tokenizer.encode(text)
+        decoded = tokenizer.decode(encoded)
+        print(f"\nOriginal: {text}")
+        print(f"Encoded:  {encoded[:20]}{'...' if len(encoded) > 20 else ''}")
+        print(f"Decoded:  {decoded}")
+        print(f"Match:    {text == decoded}")
+
+    print("\n" + "="*60)
+    print("Done!")
+    print("="*60)
+
+
+if __name__ == '__main__':
+    main()
+
